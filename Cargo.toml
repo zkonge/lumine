@@ -1,0 +1,14 @@
+[workspace]
+members = [
+    "lumine",
+    "lumine-proc"
+]
+
+[profile.dev]
+split-debuginfo = "unpacked"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"

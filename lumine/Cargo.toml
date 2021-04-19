@@ -1,0 +1,22 @@
+[package]
+name = "lumine"
+version = "0.0.1"
+authors = ["zkonge <zkonge@outlook.com>"]
+edition = "2018"
+
+[[example]]
+name ="server"
+
+[dependencies]
+log = "^0.4"
+anyhow = "^1.0"
+futures = { version = "^0.3", default-features = false }
+tokio = { version = "^1.4", features = ["rt", "net", "sync"] }
+tokio-tungstenite = { version = "^0.14", default-features = false }
+serde = { version = "^1.0", features = ["derive"] }
+serde_json = "^1.0"
+
+lumine-proc = {path = '../lumine-proc'}
+
+[dev-dependencies]
+env_logger = "^0.8"

@@ -9,7 +9,7 @@ pub(crate) struct HandshakeCallback {
 impl HandshakeCallback {
     pub(crate) fn new(access_token: &'static str) -> Self {
         Self {
-            access_token: access_token,
+            access_token,
         }
     }
 }

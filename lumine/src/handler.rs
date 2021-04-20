@@ -37,8 +37,21 @@ pub(crate) async fn handle_connection(
                             let message = from_str::<Event>(&text);
                             match message {
                                 Ok(e) => {
-                                    for i in bot.handlers.iter() {
-                                        i(e.clone(), tx.clone()).await;
+                                    for f in bot.handler.event_handler.iter() {
+                                        f(bot.clone(), e.clone()).await;
+                                    }
+                                    match e {
+                                        Event::Message { event, .. } => {
+                                            for f in bot.handler.message_handler.iter() {
+                                                f(bot.clone(), event.clone()).await;
+                                            }
+                                        }
+                                        Event::MetaEvent { event, .. } => {
+                                            for f in bot.handler.meta_handler.iter() {
+                                                f(bot.clone(), event.clone()).await;
+                                            }
+                                        }
+                                        _ => (),
                                     }
                                 }
                                 Err(e) => warn!("Unknown message: {:?}", e),

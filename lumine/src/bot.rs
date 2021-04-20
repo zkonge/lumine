@@ -1,19 +1,30 @@
-use std::{fmt::Debug, sync::Arc};
+use std::{fmt::Debug, pin::Pin, sync::Arc};
 
 use anyhow::Result;
+use futures::Future;
 use log::{info, warn};
 use tokio::{
     net::{TcpListener, ToSocketAddrs},
     runtime,
-    sync::mpsc::UnboundedSender,
 };
-use tokio_tungstenite::tungstenite::Message;
 
 use crate::{
     handler,
-    protocol::{event::Event, handshake::HandshakeCallback},
-    AsyncCallbackReturnType, AsyncCallbackType,
+    protocol::{
+        event::{message::MessageEvent, meta::MetaEvent, Event},
+        handshake::HandshakeCallback,
+    },
 };
+
+pub trait StaticFn = Sync + Send + 'static;
+
+pub type AsyncFnReturnType<T = ()> = Pin<Box<dyn Future<Output = T> + Send + Sync>>;
+
+pub type EventHandlerType = Box<dyn Fn(Arc<Bot>, Event) -> AsyncFnReturnType<()> + StaticFn>;
+pub type MetaHandlerType = Box<dyn Fn(Arc<Bot>, MetaEvent) -> AsyncFnReturnType<()> + StaticFn>;
+pub type MessageHandlerType =
+    Box<dyn Fn(Arc<Bot>, MessageEvent) -> AsyncFnReturnType<()> + StaticFn>;
+// pub type MessageEventHandlerType = Box<dyn Fn(MessageContext, Event) -> AsyncFnReturnType<()> + StaticFn>;
 
 pub struct BotConfig {
     /// 请求密钥
@@ -26,24 +37,47 @@ impl BotConfig {
     }
 }
 
+#[derive(Default)]
+pub struct BotHandler {
+    pub(crate) event_handler: Vec<EventHandlerType>,
+    pub(crate) meta_handler: Vec<MetaHandlerType>,
+    pub(crate) message_handler: Vec<MessageHandlerType>,
+}
+
 pub struct Bot {
     pub(crate) config: BotConfig,
-    pub(crate) handlers: Vec<AsyncCallbackType>,
+    pub(crate) handler: BotHandler,
 }
 
 impl Bot {
     pub fn new(config: BotConfig) -> Self {
         Bot {
             config,
-            handlers: Vec::new(),
+            handler: BotHandler::default(),
         }
     }
 
     pub fn on_event(
         mut self,
-        f: impl Fn(Event, UnboundedSender<Message>) -> AsyncCallbackReturnType + Send + Sync + 'static,
+        f: impl Fn(Arc<Bot>, Event) -> AsyncFnReturnType<()> + StaticFn,
     ) -> Self {
-        self.handlers.push(Box::new(f));
+        self.handler.event_handler.push(Box::new(f));
+        self
+    }
+
+    pub fn on_meta(
+        mut self,
+        f: impl Fn(Arc<Bot>, MetaEvent) -> AsyncFnReturnType<()> + StaticFn,
+    ) -> Self {
+        self.handler.meta_handler.push(Box::new(f));
+        self
+    }
+
+    pub fn on_message(
+        mut self,
+        f: impl Fn(Arc<Bot>, MessageEvent) -> AsyncFnReturnType<()> + StaticFn,
+    ) -> Self {
+        self.handler.message_handler.push(Box::new(f));
         self
     }
 

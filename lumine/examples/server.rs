@@ -4,9 +4,11 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio_tungstenite::tungstenite::Message;
 
 use lumine::handler_callback_fn;
-use lumine::protocol::api::{SendGroupMsg, SendPrivateMsg, API};
 use lumine::{
-    protocol::event::{message::MessageEvent, Event},
+    protocol::{
+        api::{SendGroupMsg, SendPrivateMsg, API},
+        event::{message::MessageEvent, Event},
+    },
     Bot, BotConfig,
 };
 
@@ -49,7 +51,11 @@ async fn my_callback(event: Event, ctx: UnboundedSender<Message>) {
                 if message.starts_with("/group_echo") {
                     let params = SendGroupMsg {
                         group_id: group_id as i64,
-                        message: message.strip_prefix("/group_echo").unwrap().trim().to_owned(),
+                        message: message
+                            .strip_prefix("/group_echo")
+                            .unwrap()
+                            .trim()
+                            .to_owned(),
                     };
                     ctx.send(Message::text(
                         API::SendGroupMsg { params, echo: 666 }.build(),

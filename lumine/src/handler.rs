@@ -6,7 +6,6 @@ use serde_json::from_str;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tokio_tungstenite::{
-    self,
     tungstenite::{Error, Message},
     WebSocketStream,
 };

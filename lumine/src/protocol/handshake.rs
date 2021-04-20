@@ -3,13 +3,13 @@ use log::debug;
 use tokio_tungstenite::tungstenite::handshake::server::{Callback, ErrorResponse, Request, Response};
 
 pub(crate) struct HandshakeCallback {
-    access_token: String,
+    access_token: &'static str,
 }
 
 impl HandshakeCallback {
-    pub(crate) fn new(access_token: &str) -> Self {
+    pub(crate) fn new(access_token: &'static str) -> Self {
         Self {
-            access_token: access_token.to_owned(),
+            access_token: access_token,
         }
     }
 }

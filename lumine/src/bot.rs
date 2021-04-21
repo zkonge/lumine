@@ -14,6 +14,7 @@ use crate::{
         event::{message::MessageEvent, meta::MetaEvent, Event},
         handshake::HandshakeCallback,
     },
+    rule::keyword::{KeywordRule, KeywordRuleBuilder},
 };
 
 pub trait StaticFn = Sync + Send + 'static;
@@ -26,61 +27,20 @@ pub type MessageHandlerType =
     Box<dyn Fn(Arc<Bot>, MessageEvent) -> AsyncFnReturnType<()> + StaticFn>;
 // pub type MessageEventHandlerType = Box<dyn Fn(MessageContext, Event) -> AsyncFnReturnType<()> + StaticFn>;
 
-pub struct BotConfig {
-    /// 请求密钥
-    pub(crate) access_token: &'static str,
-}
-
-impl BotConfig {
-    pub fn new(access_token: &'static str) -> Self {
-        BotConfig { access_token }
-    }
-}
-
-#[derive(Default)]
 pub struct BotHandler {
     pub(crate) event_handler: Vec<EventHandlerType>,
     pub(crate) meta_handler: Vec<MetaHandlerType>,
     pub(crate) message_handler: Vec<MessageHandlerType>,
+    pub(crate) keyword_handler: KeywordRule,
 }
 
 pub struct Bot {
-    pub(crate) config: BotConfig,
+    pub(crate) access_token: &'static str,
+    pub(crate) entry_point: &'static str,
     pub(crate) handler: BotHandler,
 }
 
 impl Bot {
-    pub fn new(config: BotConfig) -> Self {
-        Bot {
-            config,
-            handler: BotHandler::default(),
-        }
-    }
-
-    pub fn on_event(
-        mut self,
-        f: impl Fn(Arc<Bot>, Event) -> AsyncFnReturnType<()> + StaticFn,
-    ) -> Self {
-        self.handler.event_handler.push(Box::new(f));
-        self
-    }
-
-    pub fn on_meta(
-        mut self,
-        f: impl Fn(Arc<Bot>, MetaEvent) -> AsyncFnReturnType<()> + StaticFn,
-    ) -> Self {
-        self.handler.meta_handler.push(Box::new(f));
-        self
-    }
-
-    pub fn on_message(
-        mut self,
-        f: impl Fn(Arc<Bot>, MessageEvent) -> AsyncFnReturnType<()> + StaticFn,
-    ) -> Self {
-        self.handler.message_handler.push(Box::new(f));
-        self
-    }
-
     pub fn run<T: ToSocketAddrs + Debug>(self, bind_address: T) -> Result<()> {
         let rt = runtime::Builder::new_current_thread()
             .enable_io()
@@ -92,14 +52,15 @@ impl Bot {
             let listener = try_socket.expect("Bind address failed");
             info!("Listening on: {:?}", bind_address);
 
-            let access_token = self.config.access_token;
+            let access_token = self.access_token;
+            let entry_point = self.entry_point;
             let bot = Arc::new(self);
 
             while let Ok((stream, address)) = listener.accept().await {
                 info!("Receive connection from: {}", address);
 
                 //TODO: reuse callback
-                let cb = HandshakeCallback::new(&access_token);
+                let cb = HandshakeCallback::new(access_token, entry_point);
                 let bot = bot.clone();
 
                 match tokio_tungstenite::accept_hdr_async(stream, cb).await {
@@ -115,5 +76,78 @@ impl Bot {
         });
 
         Ok(())
+    }
+}
+
+pub struct BotBuilder {
+    pub(crate) access_token: &'static str,
+    pub(crate) entry_point: &'static str,
+    pub(crate) event_handler: Vec<EventHandlerType>,
+    pub(crate) meta_handler: Vec<MetaHandlerType>,
+    pub(crate) message_handler: Vec<MessageHandlerType>,
+    pub(crate) keyword_handler: Vec<(&'static str, MessageHandlerType)>,
+}
+
+impl BotBuilder {
+    pub fn new(access_token: &'static str, entry_point: &'static str) -> Self {
+        BotBuilder {
+            access_token,
+            entry_point,
+            event_handler: Vec::new(),
+            meta_handler: Vec::new(),
+            message_handler: Vec::new(),
+            keyword_handler: Vec::new(),
+        }
+    }
+
+    pub fn on_event(
+        mut self,
+        f: impl Fn(Arc<Bot>, Event) -> AsyncFnReturnType<()> + StaticFn,
+    ) -> Self {
+        self.event_handler.push(Box::new(f));
+        self
+    }
+
+    pub fn on_meta(
+        mut self,
+        f: impl Fn(Arc<Bot>, MetaEvent) -> AsyncFnReturnType<()> + StaticFn,
+    ) -> Self {
+        self.meta_handler.push(Box::new(f));
+        self
+    }
+
+    pub fn on_message(
+        mut self,
+        f: impl Fn(Arc<Bot>, MessageEvent) -> AsyncFnReturnType<()> + StaticFn,
+    ) -> Self {
+        self.message_handler.push(Box::new(f));
+        self
+    }
+    pub fn on_keyword(
+        mut self,
+        keyword: &'static str,
+        f: impl Fn(Arc<Bot>, MessageEvent) -> AsyncFnReturnType<()> + StaticFn,
+    ) -> Self {
+        self.keyword_handler.push((keyword, Box::new(f)));
+        self
+    }
+
+    pub fn build(self) -> Bot {
+        let mut keyword_handler_builder = KeywordRuleBuilder::new();
+        self.keyword_handler
+            .into_iter()
+            .for_each(|(k, f)| keyword_handler_builder.insert(k, f));
+        let keyword_handler = keyword_handler_builder.build();
+
+        Bot {
+            access_token: self.access_token,
+            entry_point: self.entry_point,
+            handler: BotHandler {
+                event_handler: self.event_handler,
+                meta_handler: self.meta_handler,
+                message_handler: self.message_handler,
+                keyword_handler,
+            },
+        }
     }
 }

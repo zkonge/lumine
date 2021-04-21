@@ -3,10 +3,10 @@ use std::sync::Arc;
 use env_logger;
 use log::info;
 
-use lumine::{handler_fn, protocol::event::meta::MetaEvent};
+use lumine::{bot::BotBuilder, handler_fn, protocol::event::meta::MetaEvent};
 use lumine::{
     protocol::event::{message::MessageEvent, Event},
-    Bot, BotConfig,
+    Bot,
 };
 
 #[handler_fn]
@@ -26,10 +26,10 @@ async fn message_handler(_context: Arc<Bot>, event: MessageEvent) {
 
 fn main() {
     env_logger::init();
-    Bot::new(BotConfig::new(""))
-        .on_event(event_handler)
-        .on_meta(meta_handler)
-        .on_message(message_handler)
-        .run("127.0.0.1:11001")
-        .unwrap();
+
+    let bot = BotBuilder::new("", "/cqhttp/ws")
+        .on_keyword("qaq", message_handler)
+        .build();
+
+    bot.run("127.0.0.1:11001").unwrap();
 }

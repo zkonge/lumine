@@ -1,4 +1,8 @@
-use std::{fmt::Debug, pin::Pin, sync::Arc};
+use std::{
+    fmt::Debug,
+    pin::Pin,
+    sync::{atomic::AtomicUsize, Arc},
+};
 
 use anyhow::Result;
 use futures::Future;
@@ -9,6 +13,7 @@ use tokio::{
 };
 
 use crate::{
+    context::MessageContext,
     handler,
     protocol::{
         event::{message::MessageEvent, meta::MetaEvent, Event},
@@ -19,12 +24,12 @@ use crate::{
 
 pub trait StaticFn = Sync + Send + 'static;
 
-pub type AsyncFnReturnType<T = ()> = Pin<Box<dyn Future<Output = T> + Send + Sync>>;
+pub type AsyncFnReturnType<T = ()> = Pin<Box<dyn Future<Output = T> + Send>>;
 
 pub type EventHandlerType = Box<dyn Fn(Arc<Bot>, Event) -> AsyncFnReturnType<()> + StaticFn>;
 pub type MetaHandlerType = Box<dyn Fn(Arc<Bot>, MetaEvent) -> AsyncFnReturnType<()> + StaticFn>;
 pub type MessageHandlerType =
-    Box<dyn Fn(Arc<Bot>, MessageEvent) -> AsyncFnReturnType<()> + StaticFn>;
+    Box<dyn Fn(MessageContext, MessageEvent) -> AsyncFnReturnType<()> + StaticFn>;
 // pub type MessageEventHandlerType = Box<dyn Fn(MessageContext, Event) -> AsyncFnReturnType<()> + StaticFn>;
 
 pub struct BotHandler {
@@ -37,6 +42,7 @@ pub struct BotHandler {
 pub struct Bot {
     pub(crate) access_token: &'static str,
     pub(crate) entry_point: &'static str,
+    pub(crate) sequence_number: AtomicUsize,
     pub(crate) handler: BotHandler,
 }
 
@@ -118,7 +124,7 @@ impl BotBuilder {
 
     pub fn on_message(
         mut self,
-        f: impl Fn(Arc<Bot>, MessageEvent) -> AsyncFnReturnType<()> + StaticFn,
+        f: impl Fn(MessageContext, MessageEvent) -> AsyncFnReturnType<()> + StaticFn,
     ) -> Self {
         self.message_handler.push(Box::new(f));
         self
@@ -126,7 +132,7 @@ impl BotBuilder {
     pub fn on_keyword(
         mut self,
         keyword: &'static str,
-        f: impl Fn(Arc<Bot>, MessageEvent) -> AsyncFnReturnType<()> + StaticFn,
+        f: impl Fn(MessageContext, MessageEvent) -> AsyncFnReturnType<()> + StaticFn,
     ) -> Self {
         self.keyword_handler.push((keyword, Box::new(f)));
         self
@@ -142,6 +148,7 @@ impl BotBuilder {
         Bot {
             access_token: self.access_token,
             entry_point: self.entry_point,
+            sequence_number: AtomicUsize::new(0),
             handler: BotHandler {
                 event_handler: self.event_handler,
                 meta_handler: self.meta_handler,

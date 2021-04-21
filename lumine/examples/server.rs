@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
 use env_logger;
+use heim::process;
 use log::info;
 
-use lumine::{bot::BotBuilder, handler_fn, protocol::event::meta::MetaEvent};
+use lumine::handler_fn;
 use lumine::{
-    protocol::event::{message::MessageEvent, Event},
+    bot::BotBuilder,
+    context::MessageContext,
+    protocol::event::{message::MessageEvent, meta::MetaEvent, Event},
     Bot,
 };
 
@@ -20,15 +23,26 @@ async fn meta_handler(_context: Arc<Bot>, event: MetaEvent) {
 }
 
 #[handler_fn]
-async fn message_handler(_context: Arc<Bot>, event: MessageEvent) {
+async fn message_handler(context: MessageContext, event: MessageEvent) {
     info!("Get message event: {:?}", event);
+    if let Ok(r) = process::current().await {
+        if let Ok(r) = r.memory().await {
+            context
+                .send(&format!(
+                    "Physical Memory: {:.1}KiB\nVirtual Memory: {:.1}Kib\n",
+                    r.rss().value as f64/1024.,
+                    r.vms().value as f64/1024.
+                ))
+                .await;
+        };
+    };
 }
 
 fn main() {
     env_logger::init();
 
     let bot = BotBuilder::new("", "/cqhttp/ws")
-        .on_keyword("qaq", message_handler)
+        .on_keyword("/memory", message_handler)
         .build();
 
     bot.run("127.0.0.1:11001").unwrap();

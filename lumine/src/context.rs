@@ -1,12 +1,17 @@
+use std::sync::Arc;
+
 use tokio::sync::mpsc::UnboundedSender;
 use tokio_tungstenite::tungstenite::Message;
 
-use crate::protocol::api::{SendGroupMsg, SendPrivateMsg, API};
+use crate::{
+    protocol::api::{SendGroupMsg, SendPrivateMsg, API},
+    Bot,
+};
 
-#[derive(Debug)]
 pub struct MessageContext {
     pub user_id: i64,
-    pub group_id: Option<i64>,
+    pub group_id: Option<i32>,
+    pub bot: Arc<Bot>,
     sequence_number: usize,
     sender: UnboundedSender<Message>,
 }
@@ -14,15 +19,17 @@ pub struct MessageContext {
 impl MessageContext {
     pub fn new(
         user_id: i64,
-        group_id: Option<i64>,
+        group_id: Option<i32>,
         sequence_number: usize,
         sender: UnboundedSender<Message>,
+        bot: Arc<Bot>,
     ) -> Self {
         MessageContext {
             user_id,
             group_id,
             sequence_number,
             sender,
+            bot
         }
     }
 

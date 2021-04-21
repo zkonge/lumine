@@ -34,7 +34,7 @@ impl APIItem for SendPrivateMsg{}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SendGroupMsg {
-    pub group_id: i64,
+    pub group_id: i32,
     pub message: String,
 }
 impl APIItem for SendGroupMsg{}

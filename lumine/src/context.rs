@@ -27,9 +27,9 @@ impl MessageContext {
         MessageContext {
             user_id,
             group_id,
+            bot,
             sequence_number,
             sender,
-            bot
         }
     }
 

@@ -9,7 +9,7 @@ use futures::Future;
 use log::{info, warn};
 use tokio::{
     net::{TcpListener, ToSocketAddrs},
-    runtime,
+    runtime::{self, Runtime},
 };
 
 use crate::{
@@ -47,13 +47,12 @@ pub struct Bot {
 }
 
 impl Bot {
-    pub fn run<T: ToSocketAddrs + Debug>(self, bind_address: T) -> Result<()> {
-        let rt = runtime::Builder::new_current_thread()
-            .enable_io()
-            .build()
-            .unwrap();
-
-        rt.block_on(async move {
+    pub fn run_with_runtime<T: ToSocketAddrs + Debug>(
+        self,
+        runtime: Runtime,
+        bind_address: T,
+    ) -> Result<()> {
+        runtime.block_on(async move {
             let try_socket = TcpListener::bind(&bind_address).await;
             let listener = try_socket.expect("Bind address failed");
             info!("Listening on: {:?}", bind_address);
@@ -81,6 +80,15 @@ impl Bot {
             }
         });
 
+        Ok(())
+    }
+
+    pub fn run<T: ToSocketAddrs + Debug>(self, bind_address: T) -> Result<()> {
+        let runtime = runtime::Builder::new_current_thread()
+            .enable_io()
+            .build()
+            .unwrap();
+        self.run_with_runtime(runtime, bind_address)?;
         Ok(())
     }
 }

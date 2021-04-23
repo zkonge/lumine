@@ -28,10 +28,26 @@ async fn dispatcher(bot: &Arc<Bot>, ws_message: String, sender: UnboundedSender<
                 match e {
                     Event::Message { event, .. } => {
                         let (user_id, group_id) = match event {
-                            MessageEvent::Private { user_id, .. } => (user_id, None),
+                            MessageEvent::Private {
+                                user_id,
+                                ref message,
+                                ..
+                            } => {
+                                info!("Message from {}: {}", user_id, message);
+                                (user_id, None)
+                            }
                             MessageEvent::Group {
-                                user_id, group_id, ..
-                            } => (user_id, Some(group_id)),
+                                user_id,
+                                group_id,
+                                ref message,
+                                ..
+                            } => {
+                                info!(
+                                    "Message from {} in group {}: {}",
+                                    user_id, group_id, message
+                                );
+                                (user_id, Some(group_id))
+                            }
                         };
                         for f in bot.handler.message_handler.iter() {
                             let msg_ctx = MessageContext::new(

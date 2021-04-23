@@ -29,7 +29,7 @@ async fn message_handler(context: MessageContext, event: MessageEvent) {
         if let Ok(r) = r.memory().await {
             context
                 .send(&format!(
-                    "Physical Memory: {:.1}KiB\nVirtual Memory: {:.1}Kib\n",
+                    "Physical Memory: {:.1}KiB\nVirtual Memory: {:.1}KiB",
                     r.rss().value as f64/1024.,
                     r.vms().value as f64/1024.
                 ))

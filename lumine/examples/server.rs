@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use env_logger;
-use heim::process;
 use log::info;
+use perf_monitor::mem::get_process_memory_info;
 
 use lumine::handler_fn;
 use lumine::{
@@ -25,16 +25,14 @@ async fn meta_handler(_context: Arc<Bot>, event: MetaEvent) {
 #[handler_fn]
 async fn message_handler(context: MessageContext, event: MessageEvent) {
     info!("Get message event: {:?}", event);
-    if let Ok(r) = process::current().await {
-        if let Ok(r) = r.memory().await {
-            context
-                .send(&format!(
-                    "Physical Memory: {:.1}KiB\nVirtual Memory: {:.1}KiB",
-                    r.rss().value as f64/1024.,
-                    r.vms().value as f64/1024.
-                ))
-                .await;
-        };
+    if let Ok(r) = get_process_memory_info() {
+        context
+            .send(&format!(
+                "Physical Memory: {}\nVirtual Memory: {}",
+                r.resident_set_size,
+                r.virtual_memory_size
+            ))
+            .await;
     };
 }
 
